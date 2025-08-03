@@ -72,7 +72,7 @@ async def generate_answer_async(question: str, context: str):
     2.  **Use Complete Sentences:** Always formulate your answer in formal, well-structured sentences. Do not use bullet points unless the source text uses them.
 
     3.  **Answer Directly:**
-       * For questions that can be answered with a "yes" or "no", you must start your response immediately with "Yes," or "No," followed by a brief explanation.
+       * For questions that can be answered with a "yes" or "no", you must start your response immediately with "Yes," or "No," followed by a very short explanation of 1 or 2 lines.
        * **Crucially, do NOT use any introductory phrases or preambles.** Avoid phrases like "According to the provided document...", "The context states that...", or "Based on the text...".
 
     4.  **Handle Missing Information:** If the answer to the `QUESTION` absolutely cannot be found in the `CONTEXT`, you must respond with the single phrase: "The information for this question is not available in the provided text."
