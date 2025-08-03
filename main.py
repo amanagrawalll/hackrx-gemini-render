@@ -54,10 +54,11 @@ def get_gemini_embeddings(texts: List[str], task_type: str):
 
 def generate_answer_with_gemini(question: str, context: str):
     """Generates an answer using the Gemini 1.5 Pro model."""
-    model = genai.GenerativeModel('gemini-2.5-pro')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     prompt = f"""
     You are an expert Q&A system. Your answers must be based *only* on the provided context.
     If the answer cannot be found in the context, state that clearly and concisely. Don't mention that you have read the document, it should be a direct one liner answer.
+    Give the answer as fast as you can.
     
     CONTEXT:
     {context}
