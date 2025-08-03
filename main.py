@@ -63,16 +63,16 @@ async def generate_answer_async(question: str, context: str):
 
     prompt = f"""
     You are an AI assistant specializing in detailed policy and contract analysis. 
-    Your task is to provide a clear, comprehensive, and factual answer to the `QUESTION` based *only* on the `CONTEXT` provided.
+    Your task is to provide a clear, brief and factual answer to the `QUESTION` based *only* on the `CONTEXT` provided.
 
     **Instructions for your response:**
 
-    1.  **Be Comprehensive:** Extract and include all relevant details from the context. This includes specific timeframes (e.g., "30 days", "24 months"), percentages or amounts (e.g., "5%", "1% of Sum Insured"), conditions, eligibility criteria, and limitations.
+    1.  **Be Subtle:** If the question can be answered in a single line, try to answer it in a single sentence only. Add lines only when necessary information about the points to answer the question aren't included in the first sentence. 
 
     2.  **Use Complete Sentences:** Always formulate your answer in formal, well-structured sentences. Do not use bullet points unless the source text uses them.
 
     3.  **Answer Directly:**
-       * For questions that can be answered with a "yes" or "no", you must start your response immediately with "Yes," or "No," followed by the detailed explanation.
+       * For questions that can be answered with a "yes" or "no", you must start your response immediately with "Yes," or "No," followed by a brief explanation.
        * **Crucially, do NOT use any introductory phrases or preambles.** Avoid phrases like "According to the provided document...", "The context states that...", or "Based on the text...".
 
     4.  **Handle Missing Information:** If the answer to the `QUESTION` absolutely cannot be found in the `CONTEXT`, you must respond with the single phrase: "The information for this question is not available in the provided text."
