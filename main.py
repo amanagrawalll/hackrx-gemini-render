@@ -59,13 +59,23 @@ async def generate_answer_async(question: str, context: str):
     model = genai.GenerativeModel('gemini-2.5-flash')
     
     # --- START OF NEW, IMPROVED PROMPT ---
-    prompt = f"""
-    You are a highly efficient data extraction engine. Your task is to answer the user's QUESTION based *only* on the provided CONTEXT.
+    # The new 'prompt' variable inside your generate_answer_async function
 
-    **Rules:**
-    1.  The answer must be as concise as possible.
-    2.  If the answer is not found in the CONTEXT, you must respond with the single phrase: "Information not available in the provided text."
-    3.  **IMPORTANT:** Start your answer directly without any introductory phrases. Do NOT use phrases like "According to the context...", "The provided text states...", "Based on the document...", or any similar preamble.
+    prompt = f"""
+    You are an AI assistant specializing in detailed policy and contract analysis. 
+    Your task is to provide a clear, comprehensive, and factual answer to the `QUESTION` based *only* on the `CONTEXT` provided.
+
+    **Instructions for your response:**
+
+    1.  **Be Comprehensive:** Extract and include all relevant details from the context. This includes specific timeframes (e.g., "30 days", "24 months"), percentages or amounts (e.g., "5%", "1% of Sum Insured"), conditions, eligibility criteria, and limitations.
+
+    2.  **Use Complete Sentences:** Always formulate your answer in formal, well-structured sentences. Do not use bullet points unless the source text uses them.
+
+    3.  **Answer Directly:**
+       * For questions that can be answered with a "yes" or "no", you must start your response immediately with "Yes," or "No," followed by the detailed explanation.
+       * **Crucially, do NOT use any introductory phrases or preambles.** Avoid phrases like "According to the provided document...", "The context states that...", or "Based on the text...".
+
+    4.  **Handle Missing Information:** If the answer to the `QUESTION` absolutely cannot be found in the `CONTEXT`, you must respond with the single phrase: "The information for this question is not available in the provided text."
 
     CONTEXT:
     ---
@@ -77,6 +87,7 @@ async def generate_answer_async(question: str, context: str):
 
     ANSWER:
     """
+   
     # --- END OF NEW, IMPROVVED PROMPT ---
     
     try:
