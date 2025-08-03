@@ -3,6 +3,7 @@ import os
 import requests
 import numpy as np
 import google.generativeai as genai
+import asyncio  # <-- Import asyncio for parallel processing
 from fastapi import FastAPI, HTTPException, Header, APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
@@ -18,7 +19,7 @@ class HackRxResponse(BaseModel):
     answers: List[str]
 
 # --- FastAPI App and Router Setup ---
-app = FastAPI(title="Gemini 1.5 Pro Q&A Service")
+app = FastAPI(title="Optimized Gemini Q&A Service")
 router = APIRouter(prefix="/api/v1")
 
 # --- Helper Functions ---
@@ -43,39 +44,49 @@ def process_document(url: str):
         return []
 
 def get_gemini_embeddings(texts: List[str], task_type: str):
-   """Generates embeddings using Google's API."""
+   """Generates embeddings for a list of texts using Google's API."""
    try:
        response = genai.embed_content(model='models/embedding-001', content=texts, task_type=task_type)
        return response['embedding']
    except Exception as e:
        print(f"Gemini embedding API call failed: {e}")
        raise HTTPException(status_code=500, detail="Failed to generate embeddings from Google.")
+# Replace the old generate_answer_async function with this new version
 
-
-def generate_answer_with_gemini(question: str, context: str):
-    """Generates an answer using the Gemini 1.5 Pro model."""
+async def generate_answer_async(question: str, context: str):
+    """Asynchronous function to generate a single answer using Gemini Flash with an improved prompt."""
+    # Using gemini-1.5-flash-latest for speed
     model = genai.GenerativeModel('gemini-2.5-flash')
+    
+    # --- START OF NEW, IMPROVED PROMPT ---
     prompt = f"""
-    You are an expert Q&A system. Your answers must be based *only* on the provided context.
-    If the answer cannot be found in the context, state that clearly and concisely. Don't mention that you have read the document, it should be a direct one liner answer.
-    Give the answer as fast as you can.
-    
+    You are a highly efficient data extraction engine. Your task is to answer the user's QUESTION based *only* on the provided CONTEXT.
+
+    **Rules:**
+    1.  The answer must be as concise as possible, but you must include all necessary details like numbers, dates, waiting periods, or specific conditions.
+    2.  If the answer is not found in the CONTEXT, you must respond with the single phrase: "Information not available in the provided text."
+    3.  **IMPORTANT:** Start your answer directly without any introductory phrases. Do NOT use phrases like "According to the context...", "The provided text states...", "Based on the document...", or any similar preamble.
+
     CONTEXT:
+    ---
     {context}
-    
+    ---
+
     QUESTION:
     {question}
-    
+
     ANSWER:
     """
+    # --- END OF NEW, IMPROVVED PROMPT ---
+    
     try:
-        response = model.generate_content(prompt)
+        # Use the async version of the generation method
+        response = await model.generate_content_async(prompt)
         return response.text.strip()
     except Exception as e:
-        print(f"Gemini API call failed: {e}")
-        if "API_KEY_INVALID" in str(e).upper():
-             raise HTTPException(status_code=401, detail="Authentication failed with Google. Check your API key.")
-        raise HTTPException(status_code=500, detail="Failed to generate answer from Google.")
+        print(f"Gemini async API call failed: {e}")
+        # Return error message instead of crashing the whole request
+        return f"Error generating answer for this question: {e}"
 
 # --- API Endpoint using the Router ---
 @router.post("/hackrx/run", response_model=HackRxResponse, tags=["HackRx"])
@@ -91,7 +102,6 @@ async def run_submission(
         raise HTTPException(status_code=401, detail="Bearer token is empty.")
 
     try:
-        # Configure the Google client for this specific request
         genai.configure(api_key=api_key)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to initialize Google client: {e}")
@@ -99,39 +109,42 @@ async def run_submission(
     if not request.documents or not request.questions:
         raise HTTPException(status_code=400, detail="Missing 'documents' or 'questions' field in the request.")
 
-    try:
-        chunks = process_document(request.documents)
-        if not chunks:
-            raise HTTPException(status_code=400, detail="Could not process document from URL.")
+    # --- Main Logic ---
+    # 1. Process document (still synchronous)
+    chunks = process_document(request.documents)
+    if not chunks:
+        raise HTTPException(status_code=400, detail="Could not process document from URL.")
 
-        # Create embeddings for all chunks via Gemini API
-        chunk_embeddings = get_gemini_embeddings(chunks, "RETRIEVAL_DOCUMENT")
+    # 2. Batch embed all document chunks at once (synchronous)
+    chunk_embeddings = get_gemini_embeddings(chunks, "RETRIEVAL_DOCUMENT")
 
-        all_answers = []
-        for question in request.questions:
-            # Create embedding for the question
-            question_embedding = get_gemini_embeddings([question], "RETRIEVAL_QUERY")[0]
+    # 3. Batch embed all questions at once (synchronous)
+    questions = request.questions
+    question_embeddings = get_gemini_embeddings(questions, "RETRIEVAL_QUERY")
+
+    # 4. Create a list of async tasks to run in parallel
+    tasks = []
+    for i, question in enumerate(questions):
+        question_embedding = question_embeddings[i]
+        
+        # Perform search (this is fast, so no need for async)
+        similarities = [np.dot(question_embedding, chunk_emb) for chunk_emb in chunk_embeddings]
+        top_k = 5
+        top_indices = sorted(range(len(similarities)), key=lambda i: similarities[i], reverse=True)[:top_k]
+        context = "\n\n---\n\n".join([chunks[i] for i in top_indices])
+        
+        # Create an async task for the slow network call (LLM generation)
+        task = generate_answer_async(question, context)
+        tasks.append(task)
+        
+    # 5. Run all answer generation tasks concurrently
+    all_answers = await asyncio.gather(*tasks)
             
-            # Perform semantic search
-            similarities = [np.dot(question_embedding, chunk_emb) for chunk_emb in chunk_embeddings]
-            top_k = 5
-            top_indices = sorted(range(len(similarities)), key=lambda i: similarities[i], reverse=True)[:top_k]
-            context = "\n\n---\n\n".join([chunks[i] for i in top_indices])
-            
-            # Generate answer with Gemini 1.5 Pro using the retrieved context
-            answer = generate_answer_with_gemini(question, context)
-            all_answers.append(answer)
-            
-        return HackRxResponse(answers=all_answers)
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        print(f"An unexpected error occurred: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return HackRxResponse(answers=all_answers)
 
 # Include the router in the main app
 app.include_router(router)
 
 @app.get("/", tags=["Health Check"])
 def health_check():
-    return {"status": "ok", "model_info": "This endpoint uses Google Gemini for embeddings and generation."}
+    return {"status": "ok", "info": "Optimized Gemini Q&A Endpoint"}
