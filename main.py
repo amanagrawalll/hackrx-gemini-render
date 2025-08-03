@@ -63,7 +63,7 @@ async def generate_answer_async(question: str, context: str):
     You are a highly efficient data extraction engine. Your task is to answer the user's QUESTION based *only* on the provided CONTEXT.
 
     **Rules:**
-    1.  The answer must be as concise as possible, but you must include all necessary details like numbers, dates, waiting periods, or specific conditions.
+    1.  The answer must be as concise as possible.
     2.  If the answer is not found in the CONTEXT, you must respond with the single phrase: "Information not available in the provided text."
     3.  **IMPORTANT:** Start your answer directly without any introductory phrases. Do NOT use phrases like "According to the context...", "The provided text states...", "Based on the document...", or any similar preamble.
 
